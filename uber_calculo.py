@@ -2,7 +2,7 @@ import re
 import json
 import subprocess
 
-with open('texto.txt', 'r', encoding='utf-8') as f:
+with open('dados.txt', 'r', encoding='utf-8') as f:
     texto = f.read()
 
 dados = {
