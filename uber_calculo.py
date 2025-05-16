@@ -22,27 +22,27 @@ dados = {
 }
 
 padroes = {
-    "categoria": r"^\[index:\d+\]:\s*(Uber\w+)$",
-    "valor_corrida": r"R\$\s*([\d,]+)",
-    "nota_passageiro": r"^\[index:\d+\]:\s*(\d+,\d+)$",
-    "embarque_tempo_distancia": r"(\d+)\s*minutos\s*\(([\d.]+)\s*km\)\s*de distância",
-    "endereco_partida": r"^\[index:\d+\]:\s*([A-Za-záàâãéèêíïóôõöúçñ\s]+)$",
-    "viagem_total": r"Viagem de (\d+)\s*minutos\s*\(([\d.]+)\s*km\)",
-    "destino": r"(.*)\b([A-Z]{2})\b,?\s*(\d{5}-?\d{3})\b(.*)"
+    "numero_radar": r"^\[index:\d+\]:\s*\d+$",
+    "categoria": r"^(?:\[com\.ubercab\.driver:id/ub_badge_text_view\]|\[index:\d+\]):\s*(Uber\w+)\b",
+    "valor_corrida": r"^\[index:\d+\]:\s*R\$[\s ]*([\d.,]+)",
+    "nota_passageiro": r"^\[index:\d+\]:\s*(\d+[,.]\d{2})$",
+    "embarque_tempo_distancia": r"(\d+)\s*minutos?\s*\(([\d.,]+)\s*km?\)",
+    "endereco_partida": r"^\[index:\d+\]:\s*(.+)\s+e\s+arredores$",
+    "viagem_total": r"^\[index:\d+\]:\s*Viagem de\s*(\d+)\s*minutos?\s*\(([\d.,]+)\s*km?\)",
+    "destino": r"^\[index:\d+\]:\s*(.+)\s+-\s+([A-Z]{2}),?\s*(\d{5}-?\d{3})" 
 }
-
-padrao_endereco = re.compile(
-    r'(.*)\b([A-Z]{2})\b,?\s*(\d{5}-?\d{3})\b(.*)',
-    re.IGNORECASE | re.VERBOSE
-)
 
 for linha in texto.strip().split('\n'):
     linha = linha.strip()
     
+    if any(s in linha for s in ["Selecionar", "Aceitar", "incluído"]) \
+       or re.match(padroes["numero_radar"], linha):
+        continue
+        
     if match := re.match(padroes["categoria"], linha, re.IGNORECASE):
         dados["categoria"] = match.group(1)
     
-    elif "R$" in linha:
+    elif "R$" in linha and "+R$" not in linha:
         if match := re.search(padroes["valor_corrida"], linha):
             dados["valor_corrida"] = float(match.group(1).replace(',', '.'))
     
@@ -52,26 +52,22 @@ for linha in texto.strip().split('\n'):
     elif "de distância" in linha:
         if match := re.search(padroes["embarque_tempo_distancia"], linha):
             dados["embarque"]["tempo_estimado"] = int(match.group(1))
-            dados["embarque"]["distancia_km"] = float(match.group(2))
+            dados["embarque"]["distancia_km"] = float(match.group(2).replace(',', '.'))
     
     elif re.match(padroes["endereco_partida"], linha):
-        dados["endereco_partida"] = linha.split(': ')[1]
+        dados["endereco_partida"] = re.match(padroes["endereco_partida"], linha).group(1)
     
     elif "Viagem de" in linha:
         if match := re.search(padroes["viagem_total"], linha):
             dados["viagem_total"]["tempo_estimado"] = int(match.group(1))
-            dados["viagem_total"]["distancia_km"] = float(match.group(2))
+            dados["viagem_total"]["distancia_km"] = float(match.group(2).replace(',', '.'))
     
-    elif re.match(padroes["destino"], linha):
-        match = padrao_endereco.search(linha.split(': ')[1])
-        if match:
-            endereco = {
-                "rua": match.group(1).strip(' -,'),
-                "estado": match.group(2),
-                "cep": match.group(3),
-                "complemento": match.group(4).strip(' ,')
-            }
-            dados["endereco_destino"] = endereco
+    elif match := re.search(padroes["destino"], linha):
+        dados["endereco_destino"] = {
+            "endereco": match.group(1).strip(),
+            "estado": match.group(2),
+            "cep": match.group(3)
+        }
 
 dados_viagem = dados
 ##print(json.dumps(dados, indent=2, ensure_ascii=False))
